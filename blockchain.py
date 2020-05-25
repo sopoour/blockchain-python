@@ -10,8 +10,6 @@ def get_last_value():
     return blockchain[-1]
 
 # Use default value [1] for last_transaction by having the second argument written like "last_transaction=[1]"
-
-
 def add_transaction(transaction_amount, last_transaction=[1]):
     """ append a new value and last BC value to BC
 
@@ -85,9 +83,11 @@ while awaiting_input:
     else:
         print("Input was invalid, please pick one of the values 1 or 2.")
 
-    """Check if results of verify_chain (from the returned is_valid) is not True 
+    """
+    Check if results of verify_chain (from the returned is_valid) is not True 
     --> because "if verify_chain()" would check if True, which we would need if we want to continue, 
-    but here we want to have the case that in case it's false we want to exit the loop"""
+    but here we want to have the case that in case it's false we want to exit the loop
+    """
     if not verify_chain():
         print_blockchain_output()
         print("Invalid blockchain!")
