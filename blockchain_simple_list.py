@@ -1,5 +1,6 @@
-blockchain = []
+#NOTE: This program contains the code from Section 1 to 3 containing simple lists, loops and conditions
 
+blockchain = []
 
 def get_last_value():
     """ returns the last value of the current blockchain """
