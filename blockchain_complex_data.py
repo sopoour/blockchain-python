@@ -142,8 +142,11 @@ def verify_chain():
     return True
     
 def verify_transactions():
+    """Verifies all open transactions."""
     #check if all transactions in open_transactions are valid (=True)
     return all([verify_transaction(tx) for tx in open_transactions])
+
+
 awaiting_input = True
 
 while awaiting_input:
@@ -179,7 +182,10 @@ while awaiting_input:
     elif user_choice == "4":
         print(participants)
     elif user_choice == "5":
-
+        if verify_transactions():
+            print('All transactions are valid')
+        else:
+            print('There are invalid transactions')
     # this is hack, which eventually needs to be prevented in our blockchain
     elif user_choice == "h":
         if len(blockchain) >= 1:
@@ -202,6 +208,6 @@ while awaiting_input:
         print_blockchain_output()
         print("Invalid blockchain!")
         break
-    print(get_balance('Sophia'))
+    print('Balance of {}:{:6.2f}'.format('Sophia', get_balance('Sophia')))
 
 print("done!")
