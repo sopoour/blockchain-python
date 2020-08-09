@@ -1,5 +1,6 @@
 # NOTE: This program contains more complex data structures including tuples, sets and dictionaries
 
+import functools
 # Initialize important global variables
 #Global constant that should never change --> you get 10 coins for mining a block
 MINING_REWARD = 10
@@ -31,23 +32,35 @@ def hash_block(block):
 def get_balance(participant):
     """Calculate the balance of each participant as verification check whether he can still send money"""
     #Amount Sent:
-    #get the amount for a given transaction for all transactions in a block where the the sender of that transaction is the participant, do so for every block in the blockchain
+    #get the amount for a given transaction for all transactions in a block where the sender of that transaction is the participant, do so for every block in the blockchain
     tx_sender = [[tx['amount'] for tx in block['transactions'] if tx['sender'] == participant] for block in blockchain]
     #check not only the past sent amounts but also the open transaction amounts to send; same logic as above but for all the transactions in the open transactions
     open_tx_sender = [tx['amount'] for tx in open_transactions if tx['sender'] == participant]
     #Now create one list with all the transaction amounts from both the blockchain what we spent there and we spent in the open transactions
     tx_sender.append(open_tx_sender)
+    #instead of a for loop as below, you can use a reduce method:
+    #function to be used on list: lambda...; list to be reduced: tx_sender; initial value: 0
+    #pass on the current sum and amount of transactions; go through all the values of tx_sender, get access to the current value which is the first element of the nested list tx_sender (tx_amt[0]) and add it to the current sum (tx_sum)
+    #check additionally whether the tx_amt is greater than 0, otherwise add 0
+    amount_sent = functools.reduce(lambda tx_sum, tx_amt: tx_sum + tx_amt[0] if len(tx_amt) > 0 else 0, tx_sender, 0)
+    """
+    Replaced by the reduce method (functools.reduce)
     amount_sent = 0
     for tx in tx_sender:
         if len(tx) > 0:
             amount_sent += tx[0]
-
+    """
     #Amount received:
     tx_recipient = [[tx['amount'] for tx in block['transactions'] if tx['recipient'] == participant] for block in blockchain]
+    #Same logic as for amount_sent above:
+    amount_received = functools.reduce(lambda tx_sum, tx_amt: tx_sum + tx_amt[0] if len(tx_amt) > 0 else 0, tx_recipient, 0)
+    """
+    Replaced by the reduce method (functools.reduce)
     amount_received = 0
     for tx in tx_recipient:
         if len(tx) > 0:
             amount_received += tx[0]
+    """        
     return amount_received - amount_sent
     
 def verify_transaction(transaction):
