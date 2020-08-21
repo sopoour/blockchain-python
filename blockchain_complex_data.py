@@ -1,6 +1,11 @@
 # NOTE: This program contains more complex data structures including tuples, sets and dictionaries
 
 import functools
+import hashlib as hl
+from collections import OrderedDict
+
+#import another file
+from hash_util import hash_string_256, hash_block
 # Initialize important global variables
 #Global constant that should never change --> you get 10 coins for mining a block
 MINING_REWARD = 10
@@ -8,7 +13,8 @@ MINING_REWARD = 10
 genenis_block = {
     'previous_hash': '',
     'index': 0,
-    'transactions': []
+    'transactions': [],
+    'proof': 100,
 }
 blockchain = [genenis_block]
 open_transactions = []
@@ -16,18 +22,24 @@ owner = 'Sophia'
 participants = {'Sophia'}
 
 
-def hash_block(block):
-    # NOTE: Simple non-secure hashing of a block = append all key values into one string:
-    # Previously, for loop to create a hashed_block
-    # hashed_block = ''
-    # for key in last_block:
-    #     value = last_block[key]
-    #     hashed_block = hashed_block + str(value)
+def valid_proof(transactions, last_hash, proof):
+    """Check: Only a hash with "00" is valid"""
+    #concertinate all of it together as string and encode in order to get a proper UTF8 string
+    guess = (str(transactions) + str(last_hash) + str(proof)).encode()
+    #hash that guess
+    guess_hash = hash_string_256(guess)
+    print(guess_hash)
+    #check that the hash starts with two zeros
+    return guess_hash[0:2] == "00"
 
-    # use list comprehension for that instead of a separate for loop:
-    # hashed_block = str([last_block[key] for key in last_block]) --> Problem: you get the brackets of list also stringified "["['', 0, []]", 1, [{'sender': 'Sophia', 'recipient': 'Anna', 'amount': 5.6}]]"
-    # Better: use join method to add a character ("-") together with the list where the last_block[key] must be a string
-    return "-".join([str(block[key]) for key in block])
+def proof_of_work():
+    """Increment the proof number"""
+    last_block = blockchain[-1]
+    last_hash = hash_block(last_block)
+    proof = 0
+    while not valid_proof(open_transactions, last_hash, proof):
+        proof += 1
+    return proof
 
 def get_balance(participant):
     """Calculate the balance of each participant as verification check whether he can still send money"""
@@ -42,7 +54,8 @@ def get_balance(participant):
     #function to be used on list: lambda...; list to be reduced: tx_sender; initial value: 0
     #pass on the current sum and amount of transactions; go through all the values of tx_sender, get access to the current value which is the first element of the nested list tx_sender (tx_amt[0]) and add it to the current sum (tx_sum)
     #check additionally whether the tx_amt is greater than 0, otherwise add 0
-    amount_sent = functools.reduce(lambda tx_sum, tx_amt: tx_sum + tx_amt[0] if len(tx_amt) > 0 else 0, tx_sender, 0)
+    #UPDATE: we need sum(tx_amt) instead of tx_amt[0] in order to sum all the added open transactions + we neext to change else 0 to else tx_sum + 0 otherwise it always returns back to 20 when mining 
+    amount_sent = functools.reduce(lambda tx_sum, tx_amt: tx_sum + sum(tx_amt) if len(tx_amt) > 0 else tx_sum + 0, tx_sender, 0)
     """
     Replaced by the reduce method (functools.reduce)
     amount_sent = 0
@@ -53,7 +66,7 @@ def get_balance(participant):
     #Amount received:
     tx_recipient = [[tx['amount'] for tx in block['transactions'] if tx['recipient'] == participant] for block in blockchain]
     #Same logic as for amount_sent above:
-    amount_received = functools.reduce(lambda tx_sum, tx_amt: tx_sum + tx_amt[0] if len(tx_amt) > 0 else 0, tx_recipient, 0)
+    amount_received = functools.reduce(lambda tx_sum, tx_amt: tx_sum + sum(tx_amt) if len(tx_amt) > 0 else tx_sum + 0, tx_recipient, 0)
     """
     Replaced by the reduce method (functools.reduce)
     amount_received = 0
@@ -77,11 +90,18 @@ def add_transaction(recipient, sender=owner, amount=1.0):
         :recipient: the recipient of the coins.
         :amount: the amount of coins sent with the transaction (default=1.0)
     """
-    transaction = {
-        'sender': sender,
-        'recipient': recipient,
-        'amount': amount
-    }
+    #OLD: unordered dictionary
+   #transaction = {
+    #    'sender': sender,
+     #   'recipient': recipient,
+      #  'amount': amount
+    #}
+
+    #NEW: Ordered Dictionary - important for hashing
+    transaction = OrderedDict(
+        [('sender', sender), ('recipient', recipient), ('amount', amount)]
+        )
+
     if verify_transaction(transaction):
         open_transactions.append(transaction)
         #Benefit of sets is here that if we add another Sophia which is already in the set it will ignore that
@@ -96,13 +116,20 @@ def add_transaction(recipient, sender=owner, amount=1.0):
 def mine_block():
     last_block = blockchain[-1]
     hashed_block = hash_block(last_block)
-    reward_transaction = {
-        #the sender is hard-coded is basically the system which sends the reward
-        'sender': "MINING",
-        'recipient': owner,
-        'amount': MINING_REWARD
-    }
+    proof = proof_of_work()
+    ##Add the proof of work within our block
+    #OLD: unordered dictionary
+   # reward_transaction = {
+    #    #the sender is hard-coded is basically the system which sends the reward
+     #   'sender': "MINING",
+      #  'recipient': owner,
+       # 'amount': MINING_REWARD
+    #}
 
+    #NEW: ordered dictionary
+    reward_transaction = OrderedDict(
+        [('sender', "MINING"), ('recipient', owner), ('amount': MINING_REWARD)]
+    )
     #In order to manipulte the list only locally to be more safe you can copy the open_transactions to that copy
     #lists and other iterable data structures are copied by reference so that if I would simply set them both equal only the pointer would be
     #copied and not the values --> if I change the copied list it would also change the original list
@@ -113,7 +140,8 @@ def mine_block():
     block = {
         'previous_hash': hashed_block,
         'index': len(blockchain),
-        'transactions': copied_transactions
+        'transactions': copied_transactions,
+        'proof': proof
     }
     blockchain.append(block)
     return True
@@ -151,6 +179,12 @@ def verify_chain():
            continue
         # check if the stored previous_hash of current block doesn't match the dynamic recalculation of the previous block
         if block['previous_hash'] != hash_block(blockchain[index - 1]):
+            return False
+        # ADD: additional check that we have two zeros in the hash
+        # if the proof is not true then we want it to be invalid
+        # transactions: in order to exlude the reward transaction add [:-1], meaning the last transaction is excluded
+        if not valid_proof(block['transactions'][:-1], block['previous_hash'], block['proof']):
+            print("Proof of Work is invalid")
             return False
     return True
     
