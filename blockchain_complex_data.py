@@ -3,9 +3,13 @@
 import functools
 import hashlib as hl
 from collections import OrderedDict
+import json
+#convert python data to binary data which is stored in a file, you are able to serialize and unserialize your data
+import pickle
 
 #import another file
 from hash_util import hash_string_256, hash_block
+
 # Initialize important global variables
 #Global constant that should never change --> you get 10 coins for mining a block
 MINING_REWARD = 10
@@ -21,6 +25,58 @@ open_transactions = []
 owner = 'Sophia'
 participants = {'Sophia'}
 
+def load_data():
+    with open('blockchain.txt', mode="r") as f:
+
+        #For Pickle: the orderdDict structure is not lost so that we need less code and can directly use the dicts and lists
+        #for that you should change the file name to blockchain.p and mode to "rb"
+        # file_content = pickle.loads(f.read())
+        file_content = f.readlines()
+        #make variables global to use it in this function
+        global blockchain
+        global open_transactions
+
+        # blockchain = file_content['chain']
+        # open_transactions = file_content['ot']
+        #For JSON: You need to do all of that since it converts it to string and back --> loosing the ordereddict structure
+        # file_content = f.readlines()
+        #define the first line of the content as blockchain and second line as open_transactions
+        #add [:-1] in order to not load the \n
+        blockchain = json.loads(file_content[0][:-1])
+        updated_blockchain = []
+        #need to convert every block again into a ordered dict otherwise it cannot read the transaction later
+        for block in blockchain:
+            updated_block = {
+                'previous_hash': block['previous_hash'], 
+                'index': block['index'], 
+                'proof': block['proof'], 
+                'transactions': [OrderedDict([('sender', tx['sender']), ('recipient', tx['recipient']), ('amount', tx['amount'])]) for tx in block['transactions']]
+            }
+            updated_blockchain.append(updated_block)
+        blockchain = updated_blockchain
+        #same as before for open transactions
+        open_transactions = json.loads(file_content[1])
+        updated_transactions = []
+        for tx in open_transactions:
+            updated_transaction = OrderedDict([('sender', tx['sender']), ('recipient', tx['recipient']), ('amount', tx['amount'])])
+            updated_transactions.append(updated_transaction)
+        open_transactions = updated_transactions
+
+load_data()
+
+def save_data():
+    
+    with open('blockchain.txt', mode="w") as f:
+        #With JSON:
+        f.write(json.dumps(blockchain) + "\n" + json.dumps(open_transactions))
+
+        #With pickle: In order to do so, change the mode from "w" to "wb" and change the file name to blockchain.p
+        #since it's binary data, we can't concertinate with \n so that we need create a dictionary for it
+        # save_data = {
+        #     'chain': blockchain,
+        #     'ot': open_transactions
+        # }
+        # f.write(pickle.dumps(save_data))
 
 def valid_proof(transactions, last_hash, proof):
     """Check: Only a hash with "00" is valid"""
@@ -91,16 +147,15 @@ def add_transaction(recipient, sender=owner, amount=1.0):
         :amount: the amount of coins sent with the transaction (default=1.0)
     """
     #OLD: unordered dictionary
-   #transaction = {
-    #    'sender': sender,
-     #   'recipient': recipient,
-      #  'amount': amount
-    #}
+    # transaction = {
+    #     'sender': sender,
+    #     'recipient': recipient,
+    #     'amount': amount
+    # }
 
     #NEW: Ordered Dictionary - important for hashing
     transaction = OrderedDict(
-        [('sender', sender), ('recipient', recipient), ('amount', amount)]
-        )
+        [('sender', sender), ('recipient', recipient), ('amount', amount)])
 
     if verify_transaction(transaction):
         open_transactions.append(transaction)
@@ -108,6 +163,7 @@ def add_transaction(recipient, sender=owner, amount=1.0):
         #Hence sets make sure that we have only unique values in the set 
         participants.add(sender)
         participants.add(recipient)
+        save_data()
         return True
     return False
 # Create a new block
@@ -119,17 +175,16 @@ def mine_block():
     proof = proof_of_work()
     ##Add the proof of work within our block
     #OLD: unordered dictionary
-   # reward_transaction = {
-    #    #the sender is hard-coded is basically the system which sends the reward
-     #   'sender': "MINING",
-      #  'recipient': owner,
-       # 'amount': MINING_REWARD
-    #}
+    # reward_transaction = {
+    #     #the sender is hard-coded is basically the system which sends the reward
+    #     'sender': "MINING",
+    #     'recipient': owner,
+    #     'amount': MINING_REWARD
+    # }
 
     #NEW: ordered dictionary
     reward_transaction = OrderedDict(
-        [('sender', "MINING"), ('recipient', owner), ('amount': MINING_REWARD)]
-    )
+        [('sender', "MINING"), ('recipient', owner), ('amount', MINING_REWARD)])
     #In order to manipulte the list only locally to be more safe you can copy the open_transactions to that copy
     #lists and other iterable data structures are copied by reference so that if I would simply set them both equal only the pointer would be
     #copied and not the values --> if I change the copied list it would also change the original list
@@ -224,6 +279,7 @@ while awaiting_input:
         #reset the block when successful mined since the transactions are then already processed and shouldn't be processed again
         if mine_block():
             open_transactions = []
+            save_data()
     elif user_choice == "3":
         print_blockchain_output()
     elif user_choice == "4":
