@@ -13,70 +13,84 @@ from hash_util import hash_string_256, hash_block
 # Initialize important global variables
 #Global constant that should never change --> you get 10 coins for mining a block
 MINING_REWARD = 10
-# Add a genenis block as the first block in a blockchain that is initialized from the beginning on
-genenis_block = {
-    'previous_hash': '',
-    'index': 0,
-    'transactions': [],
-    'proof': 100,
-}
-blockchain = [genenis_block]
+blockchain = []
 open_transactions = []
 owner = 'Sophia'
 participants = {'Sophia'}
 
 def load_data():
-    with open('blockchain.txt', mode="r") as f:
+    #make variables global to use it in this function
+    global blockchain
+    global open_transactions
+    try:
+        with open('blockchain.txt', mode="r") as f:
 
-        #For Pickle: the orderdDict structure is not lost so that we need less code and can directly use the dicts and lists
-        #for that you should change the file name to blockchain.p and mode to "rb"
-        # file_content = pickle.loads(f.read())
-        file_content = f.readlines()
-        #make variables global to use it in this function
-        global blockchain
-        global open_transactions
+            #For Pickle: the orderdDict structure is not lost so that we need less code and can directly use the dicts and lists
+            #for that you should change the file name to blockchain.p and mode to "rb"
+            # file_content = pickle.loads(f.read())
+            file_content = f.readlines()
 
-        # blockchain = file_content['chain']
-        # open_transactions = file_content['ot']
-        #For JSON: You need to do all of that since it converts it to string and back --> loosing the ordereddict structure
-        # file_content = f.readlines()
-        #define the first line of the content as blockchain and second line as open_transactions
-        #add [:-1] in order to not load the \n
-        blockchain = json.loads(file_content[0][:-1])
-        updated_blockchain = []
-        #need to convert every block again into a ordered dict otherwise it cannot read the transaction later
-        for block in blockchain:
-            updated_block = {
-                'previous_hash': block['previous_hash'], 
-                'index': block['index'], 
-                'proof': block['proof'], 
-                'transactions': [OrderedDict([('sender', tx['sender']), ('recipient', tx['recipient']), ('amount', tx['amount'])]) for tx in block['transactions']]
-            }
-            updated_blockchain.append(updated_block)
-        blockchain = updated_blockchain
-        #same as before for open transactions
-        open_transactions = json.loads(file_content[1])
-        updated_transactions = []
-        for tx in open_transactions:
-            updated_transaction = OrderedDict([('sender', tx['sender']), ('recipient', tx['recipient']), ('amount', tx['amount'])])
-            updated_transactions.append(updated_transaction)
-        open_transactions = updated_transactions
+            # blockchain = file_content['chain']
+            # open_transactions = file_content['ot']
+            #For JSON: You need to do all of that since it converts it to string and back --> loosing the ordereddict structure
+            # file_content = f.readlines()
+            #define the first line of the content as blockchain and second line as open_transactions
+            #add [:-1] in order to not load the \n
+            blockchain = json.loads(file_content[0][:-1])
+            updated_blockchain = []
+            #need to convert every block again into a ordered dict otherwise it cannot read the transaction later
+            for block in blockchain:
+                updated_block = {
+                        'previous_hash': block['previous_hash'], 
+                        'index': block['index'], 
+                        'proof': block['proof'], 
+                        'transactions': [OrderedDict([('sender', tx['sender']), ('recipient', tx['recipient']), ('amount', tx['amount'])]) for tx in block['transactions']]
+                    }
+                updated_blockchain.append(updated_block)
+                blockchain = updated_blockchain
+                #same as before for open transactions
+                open_transactions = json.loads(file_content[1])
+                updated_transactions = []
+                for tx in open_transactions:
+                    updated_transaction = OrderedDict([('sender', tx['sender']), ('recipient', tx['recipient']), ('amount', tx['amount'])])
+                    updated_transactions.append(updated_transaction)
+                open_transactions = updated_transactions
+    #Except when a special error occurs; 
+    #You have to specify the error and you can also specify multiple errors "except (IOError, ValueError)""
+    #You should always specify the error and not just use "except:" because then you might catch too many errors
+    #You can also use "Finally:" in order to have some tasks that should always run no matter the error --> good for cleanup work
+    #IO error: groups all file related errors (this is the case here)
+    #In this way the program doesn't stop and still continues
+    except IOError:
+        # When I don't have a file yet, it means I don't have a blockchain yet so that we initialize the blockchain with our genesis block in this exception
+        # Add a genenis block as the first block in a blockchain that is initialized from the beginning on
+        genenis_block = {
+            'previous_hash': '',
+            'index': 0,
+            'transactions': [],
+            'proof': 100,
+        }
+        blockchain = [genenis_block]
+        open_transactions = []
+
 
 load_data()
 
 def save_data():
-    
-    with open('blockchain.txt', mode="w") as f:
-        #With JSON:
-        f.write(json.dumps(blockchain) + "\n" + json.dumps(open_transactions))
+    try:
+        with open('blockchain.txt', mode="w") as f:
+            #With JSON:
+            f.write(json.dumps(blockchain) + "\n" + json.dumps(open_transactions))
 
-        #With pickle: In order to do so, change the mode from "w" to "wb" and change the file name to blockchain.p
-        #since it's binary data, we can't concertinate with \n so that we need create a dictionary for it
-        # save_data = {
-        #     'chain': blockchain,
-        #     'ot': open_transactions
-        # }
-        # f.write(pickle.dumps(save_data))
+            #With pickle: In order to do so, change the mode from "w" to "wb" and change the file name to blockchain.p
+            #since it's binary data, we can't concertinate with \n so that we need create a dictionary for it
+            # save_data = {
+            #     'chain': blockchain,
+            #     'ot': open_transactions
+            # }
+            # f.write(pickle.dumps(save_data))
+        except IOError:
+            print("Saving failed!")
 
 def valid_proof(transactions, last_hash, proof):
     """Check: Only a hash with "00" is valid"""
