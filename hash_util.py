@@ -17,10 +17,13 @@ def hash_block(block):
     # Better: use join method to add a character ("-") together with the list where the last_block[key] must be a string
     # return "-".join([str(block[key]) for key in block])
 
+    #when using classes and objects, we need to first convert the object to a dict in order to be hashable:
+    #Don't forget copy() otherwise whenever you hash a block it will hash the previous block again
+    hashable_block = block.__dict__.copy()
     #NEW: using proper unique hashing
     #sha256: algorithm that creates a 64 character hash and will ensure that the same input always leads to the same hash in order to recalculate and compare the hash in the verify_chain function properly
     #json.dump: since the block is a dictionary but sha256 needs a string we use json.dumps in order to stringify it by converting it to a JSON formated String
     #encode: to then really encode the block to UTF8 which can be read by sha256
     #hexdigest: the returned hash is actually not a string but a bite hash so we need to convert it to a normal string with hexdigest
     #sort_keys: ensures that even though the order of the dictionary might change, it always leads to the same string by first sorting it 
-    return hash_string_256(json.dumps(block, sort_keys=True).encode())
+    return hash_string_256(json.dumps(hashable_block, sort_keys=True).encode())
