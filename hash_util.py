@@ -18,8 +18,11 @@ def hash_block(block):
     # return "-".join([str(block[key]) for key in block])
 
     #when using classes and objects, we need to first convert the object to a dict in order to be hashable:
-    #Don't forget copy() otherwise whenever you hash a block it will hash the previous block again
     hashable_block = block.__dict__.copy()
+
+    #the above conversion doesn't convert every other element in the block (nesting), meaning that if the block has an attribute like transaction, that holds another list of elements, it is not converted to a dict
+    #therefore we need to manipulate that dict block (that's why we use copy())
+    hashable_block['transactions'] = [tx.to_ordered_dict() for tx in hashable_block['transactions']]
     #NEW: using proper unique hashing
     #sha256: algorithm that creates a 64 character hash and will ensure that the same input always leads to the same hash in order to recalculate and compare the hash in the verify_chain function properly
     #json.dump: since the block is a dictionary but sha256 needs a string we use json.dumps in order to stringify it by converting it to a JSON formated String
